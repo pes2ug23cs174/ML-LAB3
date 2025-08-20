@@ -1,0 +1,107 @@
+import numpy as np
+
+def compute_entropy(dataset: np.ndarray) -> float:
+    """
+    Compute the entropy of the dataset based on the target variable (last column).
+    
+    Args:
+        dataset (np.ndarray): Dataset where the final column is the target class
+    
+    Returns:
+        float: Entropy value calculated as -Σ(p_i * log2(p_i)),
+               where p_i is the probability of the ith class
+    """
+    if dataset.size == 0:
+        return 0.0
+    
+    target = dataset[:, -1]
+    classes, counts = np.unique(target, return_counts=True)
+    total = len(target)
+    
+    probabilities = counts / total
+    
+    entropy_val = 0.0
+    for p in probabilities:
+        if p > 0:
+            entropy_val -= p * np.log2(p)
+    
+    return entropy_val
+
+def compute_weighted_entropy(dataset: np.ndarray, feature_index: int) -> float:
+    """
+    Calculate the weighted average entropy for a given feature.
+    
+    Args:
+        dataset (np.ndarray): Dataset where last column is target
+        feature_index (int): Index of the feature column
+    
+    Returns:
+        float: Weighted entropy = Σ((|subset|/|dataset|) * entropy(subset))
+    """
+    if dataset.size == 0 or feature_index < 0 or feature_index >= dataset.shape[1] - 1:
+        return 0.0
+    
+    feature_values = dataset[:, feature_index]
+    total_samples = dataset.shape[0]
+    unique_vals = np.unique(feature_values)
+    
+    weighted_entropy = 0.0
+    for val in unique_vals:
+        subset_mask = feature_values == val
+        subset = dataset[subset_mask]
+        if subset.size == 0:
+            continue
+        
+        weight = subset.shape[0] / total_samples
+        subset_entropy = compute_entropy(subset)
+        weighted_entropy += weight * subset_entropy
+    
+    return weighted_entropy
+
+def calculate_info_gain(dataset: np.ndarray, feature_idx: int) -> float:
+    """
+    Calculate Information Gain for a given feature.
+    
+    Args:
+        dataset (np.ndarray): Dataset where last column is target
+        feature_idx (int): Feature column index
+    
+    Returns:
+        float: Information Gain = Entropy(dataset) - Weighted entropy(feature)
+               Rounded to 4 decimals
+    """
+    if dataset.size == 0:
+        return 0.0
+    
+    total_entropy = compute_entropy(dataset)
+    weighted_ent = compute_weighted_entropy(dataset, feature_idx)
+    info_gain = total_entropy - weighted_ent
+    
+    return round(info_gain, 4)
+
+def choose_best_feature(dataset: np.ndarray) -> tuple:
+    """
+    Identify the best feature by maximum information gain.
+    
+    Args:
+        dataset (np.ndarray): Dataset with target in last column
+    
+    Returns:
+        tuple: (dict of {feature_index: info_gain}, best_feature_index)
+    """
+    if dataset.size == 0 or dataset.shape[1] <= 1:
+        return ({}, -1)
+    
+    num_features = dataset.shape[1] - 1
+    gains = {}
+    
+    for idx in range(num_features):
+        gain = calculate_info_gain(dataset, idx)
+        gains[idx] = gain
+    
+    if not gains:
+        return ({}, -1)
+    
+    best_feature = max(gains.items(), key=lambda item: item[1])[0]
+    
+    return (gains, best_feature)
